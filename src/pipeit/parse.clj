@@ -36,14 +36,29 @@
   (<$> (partial hash-map :type :identifier, :value)
        (<+> letter (many0 (<|> alpha-num (one-of* "_.#$?"))))))
 
-(def operator
-  (<$> (partial hash-map :type :operator, :value)
-       (token* "not=" "<*.." "..*>" "<*?|" "|?*>" "<?|" "|?>" "<*|" "|*>" "<.." "..>" "<|" "|>" "<=" ">=" "==" "**"
-               "//" "+" "-" "%" "*" "/" "<" ">")))
+(def single-char-operator
+  (<$> (partial hash-map :type :special, :value)
+       (token* "+" "-" "%" "*" "/" "<" ">")))
 
-(def delim
+(def double-char-operator
+  (<$> (partial hash-map :type :special, :value)
+       (token* "<|" "|>" "<=" ">=" "==" "**" "//")))
+
+(def triple-char-operator
+  (<$> (partial hash-map :type :special, :value)
+       (token* "<?|" "|?>" "<*|" "|*>" "<.." "..>")))
+
+(def quadruple-char-operator
+  (<$> (partial hash-map :type :special, :value)
+       (token* "not=" "<*.." "..*>" "<*?|" "|?*>")))
+
+(def single-char-delim
   (<$> (partial hash-map :type :delim, :value)
        (token* "<-" "->" "{" "}" "(" ")" "[" "]" ";" "," "." "=" ":")))
+
+(def double-char-delim
+  (<$> (partial hash-map :type :delim, :value)
+       (token* "<-" "->")))
 
 (def reserved
   (<$> (partial hash-map :type :reserved, :value)
@@ -64,8 +79,12 @@
         bool-literal
         nil-literal
         reserved
-        delim
-        operator
+        quadruple-char-operator
+        triple-char-operator
+        double-char-operator
+        double-char-delim
+        single-char-operator
+        single-char-delim
         identifier))
 
 (def many-lexemes
@@ -128,9 +147,9 @@
 (def comprehension
   (let [input-set (bind [var (lexeme-type :identifier)
                          _ (lexeme-value "in")
-                         set' expr]
+                         set expr]
                     (return {:variable var,
-                             :set      set'}))]
+                             :set      set}))]
     (bind [_ (lexeme-value "for")
            input-sets (sep-end-by1 (lexeme-value ",") input-set)
            _ (optional (lexeme-value "where"))
@@ -182,21 +201,21 @@
              :params    params,
              :body-expr body-expr})))
 
+(def assignment
+  (bind [name (lexeme-type :identifier)
+         _ (lexeme-value "=")
+         expr' expr]
+    (return {:name name,
+             :expr expr'})))
+
 (def let-expr
-  (let [init-assignment (bind [init-name (lexeme-type :identifier)
-                               _ (lexeme-value "=")
-                               init-expr expr]
-                          (return {:name init-name,
-                                   :expr init-expr}))]
-    (bind [_ (lexeme-value "let")
-           rec (optional (lexeme-value "rec"))
-           assignments (sep-end-by (lexeme-value ",") init-assignment)
-           _ (lexeme-value "in")
-           body-expr expr]
-      (return {:node-type   :let-expr,
-               :rec?        (not (nil? rec)),
-               :assignments assignments,
-               :body-expr   body-expr}))))
+  (bind [_ (lexeme-value "let")
+         assignments (sep-end-by (lexeme-value ",") assignment)
+         _ (lexeme-value "in")
+         body-expr expr]
+    (return {:node-type   :let-expr,
+             :assignments assignments,
+             :body-expr   body-expr})))
 
 (defn chainl1**
   "Modified version of blancas.kern.expr/chainl1* that returns a pipeit ast node"
@@ -278,13 +297,12 @@
 
 (def def-stmt
   (bind [_ (lexeme-value "def")
-         name (lexeme-type :identifier)
-         _ (lexeme-value "=")
-         e expr
+         rec (optional (lexeme-value "rec"))
+         assignments (sep-end-by1 (lexeme-value ",") assignment)
          _ (lexeme-value ";")]
-    (return {:node-type :def-stmt,
-             :name      name,
-             :expr      e})))
+    (return {:node-type   :def-stmt,
+             :rec?        (not (nil? rec)),
+             :assignments assignments})))
 
 (def stmt
   (<|:> def-stmt
