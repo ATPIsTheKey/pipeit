@@ -2,6 +2,12 @@
   (:use [blancas.kern core])
   (:use [pipeit.utils]))
 
+; todo: documentation
+
+;; +-------------------------------------------------------------+
+;; |                      Lexer definitions.                     |
+;; +-------------------------------------------------------------+
+
 (def integer-literal
   (<$> (comp (partial hash-map :type :integer-literal, :value) #(Integer/parseInt ^String %))
        (<+> (many1 digit))))
@@ -73,6 +79,10 @@
   (<$> :value
        (satisfy #(in? (list* value more) (:value %)))))
 
+;; +-------------------------------------------------------------+
+;; |                     Parser definitions.                     |
+;; +-------------------------------------------------------------+
+
 (declare let-expr fun-expr if-expr when-expr tuple-expr list-expr set-expr map-expr op-expr application-expr atom-expr)
 
 (def expr
@@ -97,15 +107,22 @@
 (defn curly-brackets [p]
   (between (lexeme-value "{") (lexeme-value "}") p))
 
+(def literal-expr
+  (<$> (partial hash-map :node-type :literal-expr, :value)
+       (<|> (lexeme-type :integer-literal)
+            (lexeme-type :real-literal)
+            (lexeme-type :symbol-literal)
+            (lexeme-type :string-literal)
+            (lexeme-type :bool-literal)
+            (lexeme-type :nil-literal))))
+
+(def identifier-expr
+  (<$> (partial hash-map :node-type :identifier-expr, :value)
+       (lexeme-type :identifier)))
+
 (def atom-expr
-  (<|> (<$> (partial hash-map :node-type :atom-expr, :value)
-            (<|> (lexeme-type :integer-literal)
-                 (lexeme-type :real-literal)
-                 (lexeme-type :symbol-literal)
-                 (lexeme-type :string-literal)
-                 (lexeme-type :bool-literal)
-                 (lexeme-type :nil-literal)
-                 (lexeme-type :identifier)))
+  (<|> literal-expr
+       identifier-expr
        (parentheses expr)))
 
 (def comprehension
@@ -134,7 +151,7 @@
   (brackets (bind [es (sep-end-by (lexeme-value ",") expr)
                    compr (optional comprehension)]
               (return {:node-type     :list-expr,
-                       :expr          es,
+                       :exprs         es,
                        :comprehension compr}))))
 
 (def set-expr
@@ -216,8 +233,8 @@
   (bind [e atom-expr
          es (many1 atom-expr)]
     (return (reduce #(hash-map :node-type :application-expr,
-                               :function %1,
-                               :arg %2)
+                               :fun-expr %1,
+                               :arg-expr %2)
                     (list* e es)))))
 
 (def op-expr
