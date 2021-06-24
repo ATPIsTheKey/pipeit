@@ -54,7 +54,7 @@
 
 (def single-char-delim
   (<$> (partial hash-map :type :delim, :value)
-       (token* "<-" "->" "{" "}" "(" ")" "[" "]" ";" "," "." "=" ":")))
+       (token* "|" "<-" "->" "{" "}" "(" ")" "[" "]" ";" "," "." "=" ":")))
 
 (def double-char-delim
   (<$> (partial hash-map :type :delim, :value)
@@ -62,7 +62,7 @@
 
 (def reserved
   (<$> (partial hash-map :type :reserved, :value)
-       (token* "def" "let" "rec" "in" "if" "else" "cond" "otherwise" "fun" "monad" "do" "return" "for" "where")))
+       (token* "def" "let" "in" "if" "else" "cond" "otherwise" "monad" "do" "return" "for" "where" "recur")))
 
 (def ws
   (one-of* " \t\r\n"))
@@ -193,8 +193,9 @@
                                :comprehension   compr})))))
 
 (def fun-expr
-  (bind [_ (lexeme-value "fun")
+  (bind [_ (lexeme-value "|")
          params (many0 (lexeme-type :identifier))
+         _ (lexeme-value "|")
          _ (lexeme-value "->")
          body-expr expr]
     (return {:node-type :fun-expr,
@@ -202,11 +203,10 @@
              :body-expr body-expr})))
 
 (def assignment
-  (bind [name (lexeme-type :identifier)
+  (bind [init-name (lexeme-type :identifier)
          _ (lexeme-value "=")
-         expr' expr]
-    (return {:name name,
-             :expr expr'})))
+         init-expr expr]
+    (return {init-name init-expr})))
 
 (def let-expr
   (bind [_ (lexeme-value "let")
@@ -214,7 +214,7 @@
          _ (lexeme-value "in")
          body-expr expr]
     (return {:node-type   :let-expr,
-             :assignments assignments,
+             :assignments (apply merge assignments),
              :body-expr   body-expr})))
 
 (defn chainl1**
@@ -297,12 +297,10 @@
 
 (def def-stmt
   (bind [_ (lexeme-value "def")
-         rec (optional (lexeme-value "rec"))
          assignments (sep-end-by1 (lexeme-value ",") assignment)
          _ (lexeme-value ";")]
     (return {:node-type   :def-stmt,
-             :rec?        (not (nil? rec)),
-             :assignments assignments})))
+             :assignments (apply merge assignments)})))
 
 (def stmt
   (<|:> def-stmt
