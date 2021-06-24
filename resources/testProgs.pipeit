@@ -1,9 +1,0 @@
-def MakeSuccess = fun x -> (x, false);
-
-def MakeFailure = fun x -> (x, true);
-
-def IsFailure = fun m -> Second m;
-
-def IsSuccess = fun m -> Not Second m;
-
-def triplets = [(a ** 2, b ** 2, c ** 2) for a in (Range 1 100), b in (Range 1 100), c in (Range 1 100)];
