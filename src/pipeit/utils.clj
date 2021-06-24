@@ -8,14 +8,14 @@
   [coll item]
   (some (partial = item) coll))
 
-(defn hash-map-to-json [the-map]
-  (json/write-str the-map))
+(def hash-map-to-json
+  json/write-str)
 
 (defn bind-to [a f]
   (f a))
 
-(defn map-keys [f m]
-  (into (empty m) (for [[k v] m] [(f k) v])))
+(defn map-keys [f coll]
+  (->> coll (map (fn [[k v]] [(f k) v])) (into (empty coll))))
 
-(defn map-vals [f m]
-  (into (empty m) (for [[k v] m] [k (f v)])))
+(defn map-vals [f coll]
+  (->> coll (map (fn [[k v]] [k (f v)])) (into (empty coll))))
