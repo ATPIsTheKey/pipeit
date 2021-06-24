@@ -306,18 +306,19 @@
   (<|:> def-stmt
         (<< expr (lexeme-value ";"))))
 
-(def many-stmts
-  (many0 stmt))
+(def program
+  (<$> (partial hash-map :node-type :program, :stmts)
+       (many0 stmt)))
 
 (defn run-parse-string [s]
   (->> s
        (value many-lexemes)
-       (run many-stmts)))
+       (run program)))
 
 (defn parse-string [s]
   (->> s
        (value many-lexemes)
-       (value many-stmts)))
+       (value program)))
 
 (def parse-source-file
   (comp parse-string slurp))
