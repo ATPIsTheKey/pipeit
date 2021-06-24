@@ -113,9 +113,10 @@
     :def-stmt (eval-def-stmt frame ast-node)
     [frame (eval-expr frame ast-node)]))                    ; evaluating an expression has no effects on the frame
 
-(defn eval-prog [s]
+(defn eval-program [s]
   (->> s
        p/parse-string
+       :stmts
        (reductions (fn [[frame _] stmt]
                      (eval-stmt frame stmt))
                    [root-frame nil])
